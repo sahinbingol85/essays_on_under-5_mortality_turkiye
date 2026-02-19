@@ -17,21 +17,20 @@ st.set_page_config(
 # 2. MAIN TITLE
 # -----------------------------------------------------------------------------
 st.title("👶 Part 2: Harmonization of Historical Under-5 Mortality Data")
-st.markdown("### Supplementary Materials for Appendix E, F, and G")
+st.markdown("### Supplementary Materials for Appendix E, F, G, and H")
 
 # -----------------------------------------------------------------------------
 # 3. INTERNAL NAVIGATION (SUB-MENU)
 # -----------------------------------------------------------------------------
-# Ana Sidebar'da sayfalar arası geçiş var.
-# Bu sayfanın kendi içindeki bölümleri için 'radio' butonunu kullanıyoruz.
 st.sidebar.markdown("---")
 st.sidebar.header("Part 2 Sections")
 selection = st.sidebar.radio(
     "Go to:",
-    ["Overview",  # 'Home' ismini 'Overview' yaptık ki ana Home ile karışmasın
+    ["Overview",
      "Appendix E: Harmonized Mortality Data",
      "Appendix F: Derivation Process & Thresholds",
-     "Appendix G: Zero-Age Tables & Graphs"]
+     "Appendix G: Zero-Age Tables & Graphs",
+     "Appendix H: Demographic Convergence"]
 )
 
 
@@ -40,11 +39,6 @@ selection = st.sidebar.radio(
 # -----------------------------------------------------------------------------
 @st.cache_data
 def load_data(file_name, header_arg=0):
-    """
-    Loads Excel data from the 'data/' folder.
-    header_arg: 0 for standard files, [0, 1] for multi-row headers (Appendix F).
-    """
-    # Dosya yolu artık 'data/' klasörünü işaret ediyor
     file_path = os.path.join("data", file_name)
 
     if not os.path.exists(file_path):
@@ -58,10 +52,10 @@ def load_data(file_name, header_arg=0):
 
 
 # =============================================================================
-# SECTION: OVERVIEW (Eski Home)
+# SECTION: OVERVIEW
 # =============================================================================
 if selection == "Overview":
-    st.info("👈 Please use the sidebar menu to navigate through Appendix E, F, and G.")
+    st.info("👈 Please use the sidebar menu to navigate through Appendix E, F, G, and H.")
 
     st.header("About the Study")
     st.markdown("""
@@ -77,6 +71,9 @@ if selection == "Overview":
     3.  **Ratio-Based PDC Reconstruction:**
         To resolve this, the study introduces a novel **"Ratio-Based PDC Reconstruction Method"**. This approach isolates the true urban risk pools from census data and harmonizes them with mortality registries.
 
+    4.  **Demographic Convergence:**
+        Demonstrating how the rapid urbanization in Türkiye naturally expanded the statistical coverage of vital events, progressively mitigating historical data limitations over time.
+
     ### **Data Availability**
     The datasets provided here serve as the empirical foundation for this reconstruction.
     """)
@@ -91,7 +88,6 @@ elif selection == "Appendix E: Harmonized Mortality Data":
     * **Coverage:** National Level (1950–2008) & Provincial Level (1931–2008)
     """)
 
-    # YENİ DOSYA ADI
     file_name = "part2_appendix_e.xlsx"
     df = load_data(file_name)
 
@@ -117,9 +113,7 @@ elif selection == "Appendix F: Derivation Process & Thresholds":
     The table includes the **metadata** (Thresholds), **Step 1** (Population Denominator Reconstruction), **Step 2** (Zero-Age Numerator Reconstruction), and **Step 3** (Final Estimation).
     """)
 
-    # YENİ DOSYA ADI
     file_name = "part2_appendix_f.xlsx"
-    # Multi-header loading
     df = load_data(file_name, header_arg=[0, 1])
 
     if df is not None:
@@ -132,13 +126,9 @@ elif selection == "Appendix F: Derivation Process & Thresholds":
         )
 
         st.divider()
-
         st.subheader("🔍 Explore Calculation Steps by Province")
 
-        # Display Logic copy
         df_display = df.copy()
-
-        # Helper: Find the column that contains "PROVINCE"
         province_col_key = None
         for col in df_display.columns:
             if "PROVINCE" in str(col).upper() or "İL" in str(col).upper():
@@ -152,14 +142,6 @@ elif selection == "Appendix F: Derivation Process & Thresholds":
 
             st.markdown(f"**Showing details for: {selected_province}**")
             st.dataframe(filtered_df, use_container_width=True)
-
-            st.info("""
-            **Table Legend:**
-            * **METADATA:** Includes the applied threshold for the specific year/province.
-            * **STEP 1 (Denominator):** Shows the raw Census Total, the Excluded Rural Population, and the final Reconstructed Urban Population.
-            * **STEP 2 (Numerator):** Shows the Census Zero-Age count and the Reconstructed Urban Zero-Age count.
-            * **STEP 3 (Estimation):** Shows the derived Zero-Share Ratio and the Final Estimate.
-            """)
         else:
             st.warning("Could not automatically detect 'Province' column. Showing full table:")
             st.dataframe(df, use_container_width=True)
@@ -174,7 +156,6 @@ elif selection == "Appendix G: Zero-Age Tables & Graphs":
     st.markdown(
         "This section presents the final **zero-age population estimates** derived using the Ratio-Based PDC Reconstruction Method.")
 
-    # YENİ DOSYA ADI
     file_name = "part2_appendix_g.xlsx"
     df = load_data(file_name)
 
@@ -197,9 +178,7 @@ elif selection == "Appendix G: Zero-Age Tables & Graphs":
         with st.expander("📈 Visualize Data (Interactive Graphs)", expanded=False):
             st.subheader("Population Trends")
 
-            # Standardize columns
             df.columns = [str(c).upper().strip() for c in df.columns]
-
             col_province = next((c for c in df.columns if 'LEVEL' in c or 'PROVINCE' in c), None)
             col_year = 'YEAR'
             col_value = 'TOTAL'
@@ -235,3 +214,80 @@ elif selection == "Appendix G: Zero-Age Tables & Graphs":
                 st.error(f"Column mismatch! Needed 'YEAR' and 'LEVEL/PROVINCE'. Found: {list(df.columns)}")
     else:
         st.warning(f"⚠️ File '{file_name}' not found in 'data/' folder.")
+
+# =============================================================================
+# SECTION: APPENDIX H (YENİ EKLENEN & GÜNCELLENEN KISIM)
+# =============================================================================
+elif selection == "Appendix H: Demographic Convergence":
+    st.header("📂 Appendix H: Demographic Convergence (Urbanization)")
+    st.markdown("""
+    This section provides the comprehensive dataset detailing the ratio of the **Province and District Center (PDC) Population to the Total Population** across all 81 provinces.
+
+    As rural-to-urban migration accelerated in Türkiye, the administrative coverage of mortality statistics naturally expanded. This dataset demonstrates the progressive convergence of covered populations with true provincial populations over census years.
+    """)
+
+    # Dosya isminizi aynen bırakıyorum.
+    # Not: 'asd' sayfasını Excel'de varsayılan (ilk sayfa) olarak bıraktığınızı varsayıyoruz.
+    file_name = "part2_appendix_h_sehir_merkezi.xlsx"
+
+    try:
+        file_path = os.path.join("data", file_name)
+        if os.path.exists(file_path):
+            # Yeni formata göre header=0 (yani ilk satır başlık) olarak güncelledik.
+            # Eğer uygulamanız sayfayı bulamazsa pd.read_excel(file_path, sheet_name="asd") şeklinde değiştirebilirsiniz.
+            df_h = pd.read_excel(file_path, header=0)
+
+            # Sütun isimlerini Streamlit için temizliyoruz
+            df_h.rename(columns={'YEAR': 'Year', 'PROVINCE': 'Province'}, inplace=True)
+
+            st.subheader("📊 Convergence Data Table")
+            st.dataframe(df_h, use_container_width=True)
+
+            csv = df_h.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="💾 Download Demographic Convergence Data (CSV)",
+                data=csv,
+                file_name="demographic_convergence_appendix_h.csv",
+                mime="text/csv"
+            )
+
+            st.divider()
+
+            # ---------- GÜNCELLENEN ÇOKLU GRAFİK KISMI ----------
+            with st.expander("📈 Visualize Urbanization Convergence", expanded=False):
+                st.markdown(
+                    "Select a province to view how its PDC population coverage increased over time by **Total, Male, and Female** populations.")
+
+                # Yeni dosyadaki Rate sütunlarının tam isimleri:
+                rate_cols = ['Rate TOTAL', 'Rate MALE', 'Rate FEMALE']
+
+                if 'Province' in df_h.columns and 'Year' in df_h.columns and all(
+                        col in df_h.columns for col in rate_cols):
+                    # Null olan satırları atla
+                    df_clean = df_h.dropna(subset=['Year', 'Province'] + rate_cols)
+
+                    provinces_list = df_clean['Province'].unique()
+                    selected_province = st.selectbox("Select Province:", provinces_list, key="h_prov_select")
+
+                    filtered_df = df_clean[df_clean['Province'] == selected_province]
+
+                    # y eksenine array olarak birden fazla sütun veriyoruz (Total, Male, Female)
+                    fig = px.line(
+                        filtered_df,
+                        x='Year',
+                        y=rate_cols,
+                        markers=True,
+                        title=f"Population Coverage Rate (PDC vs Total) Over Time: {selected_province}",
+                        labels={'Year': "Census Year", 'value': "Coverage Ratio (0 to 1)", 'variable': "Group"}
+                    )
+                    # Mouse üzerine gelince hepsini göster (hovermode) ve y eksenini % formatına getir
+                    fig.update_layout(yaxis_tickformat='.1%', hovermode="x unified", legend_title_text="Coverage Type")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning(
+                        "Required columns ('Year', 'Province', 'Rate TOTAL', 'Rate MALE', 'Rate FEMALE') not found for plotting. Please ensure the Excel file format is correct.")
+
+        else:
+            st.warning(f"⚠️ File '{file_name}' not found in 'data/' folder. Please upload it.")
+    except Exception as e:
+        st.error(f"Error loading Appendix H data: {e}")
