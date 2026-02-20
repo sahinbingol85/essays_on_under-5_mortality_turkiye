@@ -17,7 +17,7 @@ st.set_page_config(
 # 2. MAIN TITLE
 # -----------------------------------------------------------------------------
 st.title("👶 Part 2: Harmonization of Historical Under-5 Mortality Data")
-st.markdown("### Supplementary Materials for Appendix E, F, G, and H")
+st.markdown("### Supplementary Materials for Appendix A, E, G, and H")
 
 # -----------------------------------------------------------------------------
 # 3. INTERNAL NAVIGATION (SUB-MENU)
@@ -27,10 +27,10 @@ st.sidebar.header("Part 2 Sections")
 selection = st.sidebar.radio(
     "Go to:",
     ["Overview",
+     "Appendix A: Demographic Convergence",
      "Appendix E: Harmonized Mortality Data",
-     "Appendix F: Derivation Process & Thresholds",
-     "Appendix G: Zero-Age Tables & Graphs",
-     "Appendix H: Demographic Convergence"]
+     "Appendix G: Derivation Process & Thresholds",
+     "Appendix H: Zero-Age Tables & Graphs"]
 )
 
 
@@ -55,7 +55,7 @@ def load_data(file_name, header_arg=0):
 # SECTION: OVERVIEW
 # =============================================================================
 if selection == "Overview":
-    st.info("👈 Please use the sidebar menu to navigate through Appendix E, F, G, and H.")
+    st.info("👈 Please use the sidebar menu to navigate through Appendix A, E, G, and H.")
 
     st.header("About the Study")
     st.markdown("""
@@ -63,23 +63,92 @@ if selection == "Overview":
     This study reconstructs Türkiye’s historical demographic trends by harmonizing fragmented archival records into a coherent longitudinal dataset. It addresses a critical gap in historical demography: the inconsistency between **mortality records** (often limited to administrative centers) and **census data** (covering the total population).
 
     ### **Key Methodological Contributions**
-    1.  **Digitization & Standardization:** Fragmented historical mortality records from 1931 to 2008 were digitized and reclassified into a standardized **22-age category system**.
-
-    2.  **Addressing the "Coverage Mismatch":**
-        Historical mortality statistics were predominantly **urban-centric (Province and District Centers - PDC)**, while censuses covered the entire population. 
-
-    3.  **Ratio-Based PDC Reconstruction:**
-        To resolve this, the study introduces a novel **"Ratio-Based PDC Reconstruction Method"**. This approach isolates the true urban risk pools from census data and harmonizes them with mortality registries.
-
-    4.  **Demographic Convergence:**
+    1.  **Demographic Convergence:**
         Demonstrating how the rapid urbanization in Türkiye naturally expanded the statistical coverage of vital events, progressively mitigating historical data limitations over time.
+
+    2.  **Digitization & Standardization:** Fragmented historical mortality records from 1931 to 2008 were digitized and reclassified into a standardized **22-age category system**.
+     
+    3. **Addressing the "Coverage Mismatch":**
+        Historical mortality statistics were predominantly **urban-centric (Province and District Centers - PDC)**, while censuses covered the entire population.  
+    
+    4. **Ratio-Based PDC Reconstruction:**
+        To resolve this, the study introduces a novel **"Ratio-Based PDC Reconstruction Method"**. This approach isolates the true urban risk pools from census data and harmonizes them with mortality registries.  
 
     ### **Data Availability**
     The datasets provided here serve as the empirical foundation for this reconstruction.
     """)
 
 # =============================================================================
-# SECTION: APPENDIX E
+# SECTION: APPENDIX A (Eski H - Demographic Convergence)
+# =============================================================================
+elif selection == "Appendix A: Demographic Convergence":
+    st.header("📂 Appendix A: Demographic Convergence (Urbanization)")
+    st.markdown("""
+    This section provides the comprehensive dataset detailing the ratio of the **Province and District Center (PDC) Population to the Total Population** across all 81 provinces.
+
+    As rural-to-urban migration accelerated in Türkiye, the administrative coverage of mortality statistics naturally expanded. This dataset demonstrates the progressive convergence of covered populations with true provincial populations over census years.
+    """)
+
+    # Eski ad: part2_appendix_h_sehir_merkezi.xlsx -> Yeni ad: part2_appendix_a_sehir_merkezi.xlsx
+    file_name = "part2_appendix_a_sehir_merkezi.xlsx"
+
+    try:
+        file_path = os.path.join("data", file_name)
+        if os.path.exists(file_path):
+            df_a = pd.read_excel(file_path, header=0)
+
+            df_a.rename(columns={'YEAR': 'Year', 'PROVINCE': 'Province'}, inplace=True)
+
+            st.subheader("📊 Convergence Data Table")
+            st.dataframe(df_a, use_container_width=True)
+
+            csv = df_a.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="💾 Download Demographic Convergence Data (CSV)",
+                data=csv,
+                file_name="demographic_convergence_appendix_a.csv",
+                mime="text/csv"
+            )
+
+            st.divider()
+
+            with st.expander("📈 Visualize Urbanization Convergence", expanded=False):
+                st.markdown(
+                    "Select a province to view how its PDC population coverage increased over time by **Total, Male, and Female** populations.")
+
+                rate_cols = ['Rate TOTAL', 'Rate MALE', 'Rate FEMALE']
+
+                if 'Province' in df_a.columns and 'Year' in df_a.columns and all(
+                        col in df_a.columns for col in rate_cols):
+                    df_clean = df_a.dropna(subset=['Year', 'Province'] + rate_cols)
+
+                    provinces_list = df_clean['Province'].unique()
+                    selected_province = st.selectbox("Select Province:", provinces_list, key="a_prov_select")
+
+                    filtered_df = df_clean[df_clean['Province'] == selected_province]
+
+                    fig = px.line(
+                        filtered_df,
+                        x='Year',
+                        y=rate_cols,
+                        markers=True,
+                        title=f"Population Coverage Rate (PDC vs Total) Over Time: {selected_province}",
+                        labels={'Year': "Census Year", 'value': "Coverage Ratio (0 to 1)", 'variable': "Group"}
+                    )
+                    fig.update_layout(yaxis_tickformat='.1%', hovermode="x unified", legend_title_text="Coverage Type")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning(
+                        "Required columns ('Year', 'Province', 'Rate TOTAL', 'Rate MALE', 'Rate FEMALE') not found for plotting. Please ensure the Excel file format is correct.")
+
+        else:
+            st.warning(
+                f"⚠️ File '{file_name}' not found in 'data/' folder. Please ensure you renamed the file correctly.")
+    except Exception as e:
+        st.error(f"Error loading Appendix A data: {e}")
+
+# =============================================================================
+# SECTION: APPENDIX E (Aynı Kaldı)
 # =============================================================================
 elif selection == "Appendix E: Harmonized Mortality Data":
     st.header("📂 Appendix E: Harmonized Mortality Data")
@@ -104,16 +173,17 @@ elif selection == "Appendix E: Harmonized Mortality Data":
         st.warning(f"⚠️ File '{file_name}' not found in 'data/' folder.")
 
 # =============================================================================
-# SECTION: APPENDIX F
+# SECTION: APPENDIX G (Eski F - Derivation Process & Thresholds)
 # =============================================================================
-elif selection == "Appendix F: Derivation Process & Thresholds":
-    st.header("📂 Appendix F: Derivation Process and Threshold Choices")
+elif selection == "Appendix G: Derivation Process & Thresholds":
+    st.header("📂 Appendix G: Derivation Process and Threshold Choices")
     st.markdown("""
     This section details the **step-by-step derivation logic** used to align census populations with mortality records.
     The table includes the **metadata** (Thresholds), **Step 1** (Population Denominator Reconstruction), **Step 2** (Zero-Age Numerator Reconstruction), and **Step 3** (Final Estimation).
     """)
 
-    file_name = "part2_appendix_f.xlsx"
+    # Eski ad: part2_appendix_f.xlsx -> Yeni ad: part2_appendix_g.xlsx
+    file_name = "part2_appendix_g.xlsx"
     df = load_data(file_name, header_arg=[0, 1])
 
     if df is not None:
@@ -121,7 +191,7 @@ elif selection == "Appendix F: Derivation Process & Thresholds":
         st.download_button(
             label="💾 Download Full Dataset (CSV)",
             data=csv,
-            file_name="derivation_thresholds_appendix_f.csv",
+            file_name="derivation_thresholds_appendix_g.csv",
             mime="text/csv"
         )
 
@@ -149,14 +219,15 @@ elif selection == "Appendix F: Derivation Process & Thresholds":
         st.warning(f"⚠️ File '{file_name}' not found in 'data/' folder.")
 
 # =============================================================================
-# SECTION: APPENDIX G
+# SECTION: APPENDIX H (Eski G - Zero-Age Tables & Graphs)
 # =============================================================================
-elif selection == "Appendix G: Zero-Age Tables & Graphs":
-    st.header("📂 Appendix G: Zero-Age Population Estimates")
+elif selection == "Appendix H: Zero-Age Tables & Graphs":
+    st.header("📂 Appendix H: Zero-Age Population Estimates")
     st.markdown(
         "This section presents the final **zero-age population estimates** derived using the Ratio-Based PDC Reconstruction Method.")
 
-    file_name = "part2_appendix_g.xlsx"
+    # Eski ad: part2_appendix_g.xlsx -> Yeni ad: part2_appendix_h.xlsx
+    file_name = "part2_appendix_h.xlsx"
     df = load_data(file_name)
 
     if df is not None:
@@ -169,7 +240,7 @@ elif selection == "Appendix G: Zero-Age Tables & Graphs":
             st.download_button(
                 label="💾 Download CSV",
                 data=csv,
-                file_name="zero_age_estimates_appendix_g.csv",
+                file_name="zero_age_estimates_appendix_h.csv",
                 mime="text/csv"
             )
 
@@ -214,80 +285,3 @@ elif selection == "Appendix G: Zero-Age Tables & Graphs":
                 st.error(f"Column mismatch! Needed 'YEAR' and 'LEVEL/PROVINCE'. Found: {list(df.columns)}")
     else:
         st.warning(f"⚠️ File '{file_name}' not found in 'data/' folder.")
-
-# =============================================================================
-# SECTION: APPENDIX H (YENİ EKLENEN & GÜNCELLENEN KISIM)
-# =============================================================================
-elif selection == "Appendix H: Demographic Convergence":
-    st.header("📂 Appendix H: Demographic Convergence (Urbanization)")
-    st.markdown("""
-    This section provides the comprehensive dataset detailing the ratio of the **Province and District Center (PDC) Population to the Total Population** across all 81 provinces.
-
-    As rural-to-urban migration accelerated in Türkiye, the administrative coverage of mortality statistics naturally expanded. This dataset demonstrates the progressive convergence of covered populations with true provincial populations over census years.
-    """)
-
-    # Dosya isminizi aynen bırakıyorum.
-    # Not: 'asd' sayfasını Excel'de varsayılan (ilk sayfa) olarak bıraktığınızı varsayıyoruz.
-    file_name = "part2_appendix_h_sehir_merkezi.xlsx"
-
-    try:
-        file_path = os.path.join("data", file_name)
-        if os.path.exists(file_path):
-            # Yeni formata göre header=0 (yani ilk satır başlık) olarak güncelledik.
-            # Eğer uygulamanız sayfayı bulamazsa pd.read_excel(file_path, sheet_name="asd") şeklinde değiştirebilirsiniz.
-            df_h = pd.read_excel(file_path, header=0)
-
-            # Sütun isimlerini Streamlit için temizliyoruz
-            df_h.rename(columns={'YEAR': 'Year', 'PROVINCE': 'Province'}, inplace=True)
-
-            st.subheader("📊 Convergence Data Table")
-            st.dataframe(df_h, use_container_width=True)
-
-            csv = df_h.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="💾 Download Demographic Convergence Data (CSV)",
-                data=csv,
-                file_name="demographic_convergence_appendix_h.csv",
-                mime="text/csv"
-            )
-
-            st.divider()
-
-            # ---------- GÜNCELLENEN ÇOKLU GRAFİK KISMI ----------
-            with st.expander("📈 Visualize Urbanization Convergence", expanded=False):
-                st.markdown(
-                    "Select a province to view how its PDC population coverage increased over time by **Total, Male, and Female** populations.")
-
-                # Yeni dosyadaki Rate sütunlarının tam isimleri:
-                rate_cols = ['Rate TOTAL', 'Rate MALE', 'Rate FEMALE']
-
-                if 'Province' in df_h.columns and 'Year' in df_h.columns and all(
-                        col in df_h.columns for col in rate_cols):
-                    # Null olan satırları atla
-                    df_clean = df_h.dropna(subset=['Year', 'Province'] + rate_cols)
-
-                    provinces_list = df_clean['Province'].unique()
-                    selected_province = st.selectbox("Select Province:", provinces_list, key="h_prov_select")
-
-                    filtered_df = df_clean[df_clean['Province'] == selected_province]
-
-                    # y eksenine array olarak birden fazla sütun veriyoruz (Total, Male, Female)
-                    fig = px.line(
-                        filtered_df,
-                        x='Year',
-                        y=rate_cols,
-                        markers=True,
-                        title=f"Population Coverage Rate (PDC vs Total) Over Time: {selected_province}",
-                        labels={'Year': "Census Year", 'value': "Coverage Ratio (0 to 1)", 'variable': "Group"}
-                    )
-                    # Mouse üzerine gelince hepsini göster (hovermode) ve y eksenini % formatına getir
-                    fig.update_layout(yaxis_tickformat='.1%', hovermode="x unified", legend_title_text="Coverage Type")
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning(
-                        "Required columns ('Year', 'Province', 'Rate TOTAL', 'Rate MALE', 'Rate FEMALE') not found for plotting. Please ensure the Excel file format is correct.")
-
-        else:
-            st.warning(f"⚠️ File '{file_name}' not found in 'data/' folder. Please upload it.")
-    except Exception as e:
-        st.error(f"Error loading Appendix H data: {e}")
