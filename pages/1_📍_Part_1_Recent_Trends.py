@@ -10,12 +10,12 @@ import os
 # 1. SAYFA AYARLARI
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Part 1: Recent Trends (2009-2023)",
+    page_title="Part 1: Recent Trends (2009-2024)",
     page_icon="📍",
     layout="wide"
 )
 
-st.title("📍 Part 1: Provincial Mortality Analysis (2009–2023)")
+st.title("📍 Part 1: Provincial Mortality Analysis (2009–2024)")
 st.markdown("Detailed analysis of mortality trends and patterns for all **81 provinces**.")
 
 
