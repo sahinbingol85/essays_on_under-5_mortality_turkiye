@@ -24,7 +24,7 @@ st.markdown(
     ### 📚 How to Navigate
     Please use the **sidebar on the left** to explore the specific parts of the thesis:
 
-    * **📍 Recent Trends (2009-2023):** Provincial analysis of current mortality levels and patterns.
+    * **📍 Recent Trends (2009-2024):** Provincial analysis of current mortality levels and patterns.
     * **👶 Harmonizing the Historical Data:** Specific focus on childhood mortality determinants.
     * **⏳ Historical Analysis:** Reconstruction of historical mortality trends (national : 1950-2008 , provincial 1931-2008).
 
