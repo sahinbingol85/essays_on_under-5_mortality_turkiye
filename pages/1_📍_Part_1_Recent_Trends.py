@@ -57,7 +57,6 @@ def process_regional_expansion(df):
                 expanded_rows.append(new_row)
     return pd.DataFrame(expanded_rows)
 
-# Veriyi Gösterme ve İndirme Butonu Fonksiyonu
 def show_data_expander(df, filename="data.csv"):
     with st.expander("📊 View & Download Data"):
         st.dataframe(df, use_container_width=True)
@@ -68,6 +67,11 @@ def show_data_expander(df, filename="data.csv"):
             file_name=filename,
             mime='text/csv',
         )
+
+# "Total" Cinsiyetini varsayılan yapmak için yardımcı fonksiyon
+def get_total_index(sex_options):
+    sex_list = list(sex_options)
+    return sex_list.index("Total") if "Total" in sex_list else 0
 
 # -----------------------------------------------------------------------------
 # 3. VERİ YÜKLEME (DATA KLASÖRÜNDEN)
@@ -89,7 +93,6 @@ def load_data():
     df_nat_qx = load_file("part1_qx_national")
     df_nat_k = load_file("part1_ks_national")
 
-    # --- VERİ TEMİZLİĞİ VE STANDARTLAŞTIRMA ---
     corrections = {
         "Istanbul": "İstanbul", "Izmir": "İzmir", "Afyon": "Afyonkarahisar", "Agri": "Ağrı", 
         "Canakkale": "Çanakkale", "Cankiri": "Çankırı", "Corum": "Çorum", "Diyarbakir": "Diyarbakır", 
@@ -188,7 +191,8 @@ with tab1:
         col1, col2 = st.columns([1, 3])
         with col1:
             st.markdown("### Settings")
-            selected_sex_nat_qx = st.radio("Select Sex", df_nat_qx['sex'].unique(), index=0, key="nat_qx_sex")
+            sex_opts = df_nat_qx['sex'].unique()
+            selected_sex_nat_qx = st.radio("Select Sex", sex_opts, index=get_total_index(sex_opts), key="nat_qx_sex")
 
         with col2:
             filtered_nat_qx = df_nat_qx[df_nat_qx['sex'] == selected_sex_nat_qx].sort_values("year")
@@ -206,7 +210,6 @@ with tab1:
                 fig_nat_qx.update_layout(height=500, xaxis=dict(dtick=1))
                 st.plotly_chart(fig_nat_qx, use_container_width=True)
                 
-                # DATA VIEW & DOWNLOAD EKLENDİ
                 show_data_expander(filtered_nat_qx, f"national_qx_{selected_sex_nat_qx}.csv")
             else:
                 st.warning("No data available.")
@@ -226,7 +229,7 @@ with tab2:
             view_mode = st.radio("View Mode", ["Single Sex", "Compare All Sexes"], index=1, key="nat_k_mode")
             
             if view_mode == "Single Sex":
-                sel_sex_nat_k = st.selectbox("Select Sex", available_sexes, key="nat_k_sex")
+                sel_sex_nat_k = st.selectbox("Select Sex", available_sexes, index=get_total_index(available_sexes), key="nat_k_sex")
                 df_plot_k = df_nat_k[df_nat_k['sex'] == sel_sex_nat_k].sort_values("year")
             else:
                 df_plot_k = df_nat_k.sort_values("year")
@@ -242,7 +245,6 @@ with tab2:
                 fig_nat_k.update_layout(height=500, xaxis=dict(dtick=1))
                 st.plotly_chart(fig_nat_k, use_container_width=True)
                 
-                # DATA VIEW & DOWNLOAD EKLENDİ
                 file_name_k = f"national_k_{sel_sex_nat_k}.csv" if view_mode == "Single Sex" else "national_k_all.csv"
                 show_data_expander(df_plot_k, file_name_k)
             else:
@@ -261,7 +263,8 @@ with tab3:
             st.markdown("### Settings")
             regions = sorted(df_reg_qx['level'].unique())
             selected_region = st.selectbox("Select Region (NUTS-1)", regions)
-            selected_sex_reg_qx = st.radio("Select Sex", df_reg_qx['sex'].unique(), index=0, key="reg_qx_sex")
+            sex_opts = df_reg_qx['sex'].unique()
+            selected_sex_reg_qx = st.radio("Select Sex", sex_opts, index=get_total_index(sex_opts), key="reg_qx_sex")
 
         with col2:
             filtered_reg_qx = df_reg_qx[(df_reg_qx['level'] == selected_region) & (df_reg_qx['sex'] == selected_sex_reg_qx)].sort_values("year")
@@ -279,7 +282,6 @@ with tab3:
                 fig_reg_qx.update_layout(height=500, xaxis=dict(dtick=1))
                 st.plotly_chart(fig_reg_qx, use_container_width=True)
                 
-                # DATA VIEW & DOWNLOAD EKLENDİ
                 safe_reg_name = selected_region.replace(" ", "_").lower()
                 show_data_expander(filtered_reg_qx, f"regional_qx_{safe_reg_name}_{selected_sex_reg_qx}.csv")
             else:
@@ -309,12 +311,39 @@ with tab4:
             st.markdown("### Map Settings")
             r_years = sorted(df_reg_k['year'].unique())
             selected_year_reg = st.select_slider("Select Year", options=r_years, value=r_years[-1] if r_years else 2023, key="reg_map_y")
-            selected_sex_reg = st.radio("Select Sex", df_reg_k['sex'].unique(), index=0, key="reg_map_sex")
+            sex_opts = df_reg_k['sex'].unique()
+            selected_sex_reg = st.radio("Select Sex", sex_opts, index=get_total_index(sex_opts), key="reg_map_sex")
             show_reg_labels = st.checkbox("Show Region Names", value=True)
 
         with r_col2:
             filtered_reg_map = map_df[(map_df['year'] == selected_year_reg) & (map_df['sex'] == selected_sex_reg)]
             if not filtered_reg_map.empty:
+                
+                # --- SUMMARY METRICS (REGIONAL) ---
+                unique_reg = filtered_reg_map[['region_name', 'k']].drop_duplicates()
+                sc1, sc2, sc3 = st.columns(3)
+                
+                nat_val_str = "N/A"
+                if not df_nat_k.empty:
+                    nat_df = df_nat_k[(df_nat_k['year'] == selected_year_reg) & (df_nat_k['sex'] == selected_sex_reg)]
+                    if not nat_df.empty:
+                        nat_val_str = f"{nat_df['k'].values[0]:.3f}"
+                sc1.metric("🇹🇷 National Average (k)", nat_val_str)
+                
+                if not unique_reg.empty:
+                    max_idx = unique_reg['k'].idxmax()
+                    max_val = unique_reg.loc[max_idx, 'k']
+                    max_reg = unique_reg.loc[max_idx, 'region_name']
+                    sc2.metric(f"📈 Highest: {max_reg}", f"{max_val:.3f}")
+                    
+                    min_idx = unique_reg['k'].idxmin()
+                    min_val = unique_reg.loc[min_idx, 'k']
+                    min_reg = unique_reg.loc[min_idx, 'region_name']
+                    sc3.metric(f"📉 Lowest: {min_reg}", f"{min_val:.3f}")
+                
+                st.markdown("<br>", unsafe_allow_html=True) 
+                
+                # --- MAP DRAWING ---
                 fig_reg_map = px.choropleth(
                     filtered_reg_map, geojson=turkey_geojson, locations='province_name', featureidkey="properties.name",
                     color='k', color_continuous_scale="RdBu_r", range_color=(-2.0, 2.0), hover_name='region_name',
@@ -323,7 +352,6 @@ with tab4:
                 fig_reg_map.update_traces(marker_line_width=0, marker_opacity=1.0)
 
                 if show_reg_labels:
-                    unique_reg = filtered_reg_map[['region_name', 'k']].drop_duplicates()
                     labels = []
                     for _, row in unique_reg.iterrows():
                         r_name = row['region_name']
@@ -340,7 +368,6 @@ with tab4:
                 fig_reg_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=650)
                 st.plotly_chart(fig_reg_map, use_container_width=True)
                 
-                # DATA VIEW & DOWNLOAD EKLENDİ
                 show_data_expander(filtered_reg_map, f"regional_map_k_{selected_year_reg}_{selected_sex_reg}.csv")
             else:
                 st.warning("No regional data available for the selected year and sex.")
@@ -358,7 +385,8 @@ with tab5:
             st.markdown("### Settings")
             provinces = sorted(df_qx['level'].unique())
             selected_province = st.selectbox("Select Province", provinces, index=provinces.index("İstanbul") if "İstanbul" in provinces else 0)
-            selected_sex_prov_qx = st.radio("Select Sex", df_qx['sex'].unique(), index=0, key="prov_qx_sex")
+            sex_opts = df_qx['sex'].unique()
+            selected_sex_prov_qx = st.radio("Select Sex", sex_opts, index=get_total_index(sex_opts), key="prov_qx_sex")
 
         with col2:
             filtered_qx = df_qx[(df_qx['level'] == selected_province) & (df_qx['sex'] == selected_sex_prov_qx)].sort_values("year")
@@ -376,7 +404,6 @@ with tab5:
                 fig_line.update_layout(height=500, xaxis=dict(dtick=1))
                 st.plotly_chart(fig_line, use_container_width=True)
                 
-                # DATA VIEW & DOWNLOAD EKLENDİ
                 safe_prov_name = selected_province.replace(" ", "_").lower()
                 show_data_expander(filtered_qx, f"provincial_qx_{safe_prov_name}_{selected_sex_prov_qx}.csv")
             else:
@@ -395,7 +422,8 @@ with tab6:
             st.markdown("### Map Settings")
             years = sorted(df_k['year'].unique())
             selected_year_k = st.select_slider("Select Year", options=years, value=years[-1] if years else 2023, key="prov_map_y")
-            selected_sex_k = st.radio("Select Sex", df_k['sex'].unique(), index=0, key="prov_map_sex")
+            sex_opts = df_k['sex'].unique()
+            selected_sex_k = st.radio("Select Sex", sex_opts, index=get_total_index(sex_opts), key="prov_map_sex")
             st.markdown("---")
             show_prov_names = st.checkbox("Show Province Names", value=False)
             show_values = st.checkbox("Show k Values", value=False)
@@ -403,6 +431,30 @@ with tab6:
         with m_col2:
             filtered_k = df_k[(df_k['year'] == selected_year_k) & (df_k['sex'] == selected_sex_k)]
             if not filtered_k.empty:
+                
+                # --- SUMMARY METRICS (PROVINCIAL) ---
+                sc1, sc2, sc3 = st.columns(3)
+                
+                nat_val_str = "N/A"
+                if not df_nat_k.empty:
+                    nat_df = df_nat_k[(df_nat_k['year'] == selected_year_k) & (df_nat_k['sex'] == selected_sex_k)]
+                    if not nat_df.empty:
+                        nat_val_str = f"{nat_df['k'].values[0]:.3f}"
+                sc1.metric("🇹🇷 National Average (k)", nat_val_str)
+                
+                max_idx = filtered_k['k'].idxmax()
+                max_val = filtered_k.loc[max_idx, 'k']
+                max_prov = filtered_k.loc[max_idx, 'level']
+                sc2.metric(f"📈 Highest: {max_prov}", f"{max_val:.3f}")
+                
+                min_idx = filtered_k['k'].idxmin()
+                min_val = filtered_k.loc[min_idx, 'k']
+                min_prov = filtered_k.loc[min_idx, 'level']
+                sc3.metric(f"📉 Lowest: {min_prov}", f"{min_val:.3f}")
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # --- MAP DRAWING ---
                 fig_map = px.choropleth(
                     filtered_k, geojson=turkey_geojson, locations='level', featureidkey="properties.name",
                     color='k', color_continuous_scale="RdBu_r", range_color=(-2.0, 2.0),
@@ -437,7 +489,6 @@ with tab6:
                 fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=650)
                 st.plotly_chart(fig_map, use_container_width=True)
                 
-                # DATA VIEW & DOWNLOAD EKLENDİ
                 show_data_expander(filtered_k, f"provincial_map_k_{selected_year_k}_{selected_sex_k}.csv")
             else:
                 st.warning("No data available.")
