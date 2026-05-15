@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 st.title("⏳ Part 3: Historical Mortality Analysis (1931–2008)")
-st.markdown("Reconstruction of historical mortality trends and spatial patterns in Türkiye.")
+st.markdown("Reconstruction of historical mortality trends and deconstructing structural reporting artifacts in Türkiye.")
 
 # -----------------------------------------------------------------------------
 # 2. HELPER FUNCTIONS & DICTIONARIES
@@ -324,10 +324,10 @@ if page == "🇹🇷 National Level":
                     st.warning("No data to plot.")
 
 # =============================================================================
-# PAGE 2: 
+# PAGE 2: REGIONAL LEVEL
 # =============================================================================
 elif page == "🗺 Regional Level (NUTS-1)":
-    tab1, tab2 = st.tabs(["📉 Trends (qx)", "🗺️ Maps (k)"])
+    tab1, tab2, tab3 = st.tabs(["📉 Trends (qx)", "🗺️ Maps (k)", "⚠️ Deconstructing Reporting Artifacts"])
 
     with tab1:
         st.header("🗺 Historical Regional Mortality Trends (NUTS1)")
@@ -441,11 +441,77 @@ elif page == "🗺 Regional Level (NUTS-1)":
                 else:
                     st.warning("No data available.")
 
+    with tab3:
+        st.header("⚠️ Deconstructing Structural Artifacts: Regional Undercoverage Analysis")
+        st.markdown("""
+        **Methodological Note:** To prevent artificial inflation, all coverage rates and missing death estimates 
+        for the historical period (1950-2008) are calculated strictly against the urban (Province and District Centers) population frame using *Ratio-Based PDC Adjustment*.
+        """)
+        st.info("Since Neonatal (q28) data is historically unavailable for regional aggregates, this analysis relies exclusively on Infant Mortality (IMR) tracking.")
+        
+        try:
+            df_uc_reg = pd.read_csv("data/historical_undercoverage_regional.csv")
+            df_uc_reg['sex'] = df_uc_reg['sex'].str.title().str.strip()
+            df_uc_reg['level'] = df_uc_reg['level'].str.title().str.strip().replace({"Aegean": "Aegean Region"})
+            
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                uc_regs = sorted(df_uc_reg['level'].unique())
+                sel_uc_reg = st.selectbox("Select Region", uc_regs, key="uc_reg_sb")
+            with col2:
+                filt_uc_reg = df_uc_reg[(df_uc_reg['level'] == sel_uc_reg) & (df_uc_reg['sex'] == 'Total')].sort_values("year")
+                
+                if not filt_uc_reg.empty:
+                    # St.Metric Panel (Averaging Out Kanıtı)
+                    c_m1, c_m2 = st.columns(2)
+                    with c_m1:
+                        worst_cov_row = filt_uc_reg.loc[filt_uc_reg['Coverage_IMR'].idxmin()]
+                        st.metric(f"Lowest Coverage Year ({worst_cov_row['year']})", f"{worst_cov_row['Coverage_IMR']:.1f}%", delta="Structural Deficit", delta_color="inverse")
+                    with c_m2:
+                        peak_missing_row = filt_uc_reg.loc[filt_uc_reg['Missing_IMR'].idxmax()]
+                        st.metric(f"Peak Missing Deaths ({peak_missing_row['year']})", f"{int(peak_missing_row['Missing_IMR'])} infants", delta="Unregistered", delta_color="inverse")
+                        
+                    st_tabA, st_tabB, st_tabC = st.tabs(["📊 Panel A: IMR (Observed vs Predicted)", "📉 Panel B: IMR Coverage (%)", "⚠️ Panel C: Underreported Deaths"])
+                    
+                    with st_tabA:
+                        fig_A = go.Figure()
+                        fig_A.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['pred_IMR_up'], mode='lines', line=dict(width=0), hoverinfo='skip', showlegend=False))
+                        fig_A.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['pred_IMR_low'], mode='lines', fill='tonexty', fillcolor='rgba(31, 119, 180, 0.2)', line=dict(width=0), name='Uncertainty Interval'))
+                        fig_A.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['pred_IMR'], mode='lines', name='Predicted IMR', line=dict(dash='dash', color='#1f77b4', width=3)))
+                        fig_A.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['obs_IMR'], mode='lines', name='Observed IMR', line=dict(color='#d62728', width=3)))
+                        fig_A.update_layout(height=450, hovermode="x unified", title=f"Panel A: Infant Mortality Rate for {sel_uc_reg}", template="plotly_white")
+                        fig_A.update_xaxes(dtick=5)
+                        st.plotly_chart(fig_A, use_container_width=True)
+                        
+                    with st_tabB:
+                        fig_B = go.Figure()
+                        fig_B.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['Coverage_IMR_up'], mode='lines', line=dict(width=0), hoverinfo='skip', showlegend=False))
+                        fig_B.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['Coverage_IMR_low'], mode='lines', fill='tonexty', fillcolor='rgba(255, 127, 14, 0.2)', line=dict(width=0), name='Uncertainty Interval'))
+                        fig_B.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['Coverage_IMR'], mode='lines+markers', name='IMR Coverage', line=dict(color='#ff7f0e', width=3)))
+                        fig_B.add_hline(y=100, line_color="#d62728", line_width=2, line_dash="dot", opacity=0.8, annotation_text="100% (Complete)")
+                        fig_B.update_layout(height=450, hovermode="x unified", title=f"Panel B: IMR Registration Coverage (%) for {sel_uc_reg}", template="plotly_white")
+                        fig_B.update_xaxes(dtick=5)
+                        st.plotly_chart(fig_B, use_container_width=True)
+
+                    with st_tabC:
+                        fig_C = go.Figure()
+                        fig_C.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['Missing_IMR_up'], mode='lines', line=dict(width=0), hoverinfo='skip', showlegend=False))
+                        fig_C.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['Missing_IMR_low'], mode='lines', fill='tonexty', fillcolor='rgba(148, 103, 189, 0.2)', line=dict(width=0), name='Uncertainty Interval'))
+                        fig_C.add_trace(go.Scatter(x=filt_uc_reg['year'], y=filt_uc_reg['Missing_IMR'], mode='lines+markers', name='Missing Infant Deaths', line=dict(color='#9467bd', width=3)))
+                        fig_C.add_hline(y=0, line_color="#d62728", line_width=2, line_dash="dot", opacity=0.8, annotation_text="0 (No Underreporting)")
+                        fig_C.update_layout(height=450, hovermode="x unified", title=f"Panel C: Absolute Number of Underreported Infant Deaths for {sel_uc_reg}", template="plotly_white")
+                        fig_C.update_xaxes(dtick=5)
+                        st.plotly_chart(fig_C, use_container_width=True)
+                        
+                    show_data_expander(filt_uc_reg, f"historical_regional_undercoverage_{sel_uc_reg}.csv")
+        except FileNotFoundError:
+            st.error("Please ensure 'historical_undercoverage_regional.csv' is generated and placed in the data folder.")
+
 # =============================================================================
 # PAGE 3: PROVINCIAL LEVEL
 # =============================================================================
 elif page == "🏙️ Provincial Level":
-    tab1, tab2 = st.tabs(["📉 Trends (qx)", "🗺️ Maps (67 Provinces)"])
+    tab1, tab2, tab3 = st.tabs(["📉 Trends (qx)", "🗺️ Maps (67 Provinces)", "⚠️ Deconstructing Reporting Artifacts"])
 
     with tab1:
         st.header("🏙️ Historical Provincial Mortality Trends (1931-2008)")
@@ -464,7 +530,7 @@ elif page == "🏙️ Provincial Level":
                     (df_prov_trends['sex'] == selected_sex)
                 ].sort_values("year")
                 
-                # 1958 öncesi Neonatal gizleniyor (orijinal kodda vardı)
+                # 1958 öncesi Neonatal gizleniyor
                 filtered_df = filtered_df[~((filtered_df['rate_label'].str.contains("Neonatal")) & (filtered_df['year'] < 1958))]
                     
                 if not filtered_df.empty:
@@ -573,3 +639,76 @@ elif page == "🏙️ Provincial Level":
                 st.markdown("""<div style="background-color: #dcedc8; padding: 10px; border-radius: 5px; color: #333; font-size: 14px; margin-top: 10px; border: 1px solid #c5e1a5;">ℹ️ <b>Note:</b> Green areas indicate missing data.</div>""", unsafe_allow_html=True)
 
                 show_data_expander(merged_map_data, f"historical_provincial_map_67_{map_year_prov}_{map_sex_prov}.csv")
+
+    with tab3:
+        st.header("⚠️ Deconstructing Structural Artifacts: Provincial Undercoverage Analysis")
+        st.markdown("""
+        **Methodological Note:** To prevent artificial inflation, all coverage rates and missing death estimates 
+        for the historical period (1931-2008) are calculated strictly against the urban (Province and District Centers) population frame using *Ratio-Based PDC Adjustment*.
+        """)
+        st.info("For the provincial historical analysis, this section focuses exclusively on Neonatal Mortality (q28d) to deconstruct early-life reporting gaps.")
+        
+        try:
+            df_uc_prov = pd.read_csv("data/historical_undercoverage_provincial.csv")
+            df_uc_prov['sex'] = df_uc_prov['sex'].str.title().str.strip()
+            df_uc_prov['level'] = df_uc_prov['level'].str.title().str.strip().replace(PROVINCE_CORRECTIONS)
+            
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                uc_provs = sorted(df_uc_prov['level'].unique())
+                sel_uc_prov = st.selectbox("Select Province", uc_provs, index=uc_provs.index("İstanbul") if "İstanbul" in uc_provs else 0, key="uc_prov_sb")
+                
+            with col2:
+                filt_uc_prov = df_uc_prov[(df_uc_prov['level'] == sel_uc_prov) & (df_uc_prov['sex'] == 'Total')].sort_values("year")
+                
+                if not filt_uc_prov.empty:
+                    # Sadece q28 üzerinden devam ediyoruz
+                    valid_q28 = filt_uc_prov.dropna(subset=['obs_q28', 'Coverage_q28'])
+                    
+                    if valid_q28.empty:
+                        st.warning(f"⚠️ No historical Neonatal (q28) data available for {sel_uc_prov}.")
+                    else:
+                        # St.Metric Panel
+                        c_m1, c_m2 = st.columns(2)
+                        with c_m1:
+                            worst_cov_row = valid_q28.loc[valid_q28['Coverage_q28'].idxmin()]
+                            st.metric(f"Lowest Coverage Year ({worst_cov_row['year']})", f"{worst_cov_row['Coverage_q28']:.1f}%", delta="Structural Deficit", delta_color="inverse")
+                        with c_m2:
+                            peak_missing_row = valid_q28.loc[valid_q28['Missing_q28'].idxmax()]
+                            st.metric(f"Peak Missing Neonatal Deaths ({peak_missing_row['year']})", f"{int(peak_missing_row['Missing_q28'])} infants", delta="Unregistered", delta_color="inverse")
+
+                        st_tabA, st_tabB, st_tabC = st.tabs(["📊 Panel A: q28 (Observed vs Predicted)", "📉 Panel B: Neonatal Coverage (%)", "⚠️ Panel C: Underreported Deaths"])
+                        
+                        with st_tabA:
+                            fig_A = go.Figure()
+                            fig_A.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['pred_q28_up'], mode='lines', line=dict(width=0), hoverinfo='skip', showlegend=False))
+                            fig_A.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['pred_q28_low'], mode='lines', fill='tonexty', fillcolor='rgba(31, 119, 180, 0.2)', line=dict(width=0), name='Uncertainty Interval'))
+                            fig_A.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['pred_q28'], mode='lines', name='Predicted q28', line=dict(dash='dash', color='#1f77b4', width=3)))
+                            fig_A.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['obs_q28'], mode='lines', name='Observed q28', line=dict(color='#d62728', width=3)))
+                            fig_A.update_layout(height=450, hovermode="x unified", title=f"Panel A: Neonatal Mortality Rate for {sel_uc_prov}", template="plotly_white")
+                            fig_A.update_xaxes(dtick=5)
+                            st.plotly_chart(fig_A, use_container_width=True)
+                            
+                        with st_tabB:
+                            fig_B = go.Figure()
+                            fig_B.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['Coverage_q28_up'], mode='lines', line=dict(width=0), hoverinfo='skip', showlegend=False))
+                            fig_B.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['Coverage_q28_low'], mode='lines', fill='tonexty', fillcolor='rgba(255, 127, 14, 0.2)', line=dict(width=0), name='Uncertainty Interval'))
+                            fig_B.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['Coverage_q28'], mode='lines+markers', name='Neonatal Coverage', line=dict(color='#ff7f0e', width=3)))
+                            fig_B.add_hline(y=100, line_color="#d62728", line_width=2, line_dash="dot", opacity=0.8, annotation_text="100% (Complete)")
+                            fig_B.update_layout(height=450, hovermode="x unified", title=f"Panel B: Neonatal Registration Coverage (%) for {sel_uc_prov}", template="plotly_white")
+                            fig_B.update_xaxes(dtick=5)
+                            st.plotly_chart(fig_B, use_container_width=True)
+
+                        with st_tabC:
+                            fig_C = go.Figure()
+                            fig_C.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['Missing_q28_up'], mode='lines', line=dict(width=0), hoverinfo='skip', showlegend=False))
+                            fig_C.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['Missing_q28_low'], mode='lines', fill='tonexty', fillcolor='rgba(148, 103, 189, 0.2)', line=dict(width=0), name='Uncertainty Interval'))
+                            fig_C.add_trace(go.Scatter(x=valid_q28['year'], y=valid_q28['Missing_q28'], mode='lines+markers', name='Missing Neonatal Deaths', line=dict(color='#9467bd', width=3)))
+                            fig_C.add_hline(y=0, line_color="#d62728", line_width=2, line_dash="dot", opacity=0.8, annotation_text="0 (No Underreporting)")
+                            fig_C.update_layout(height=450, hovermode="x unified", title=f"Panel C: Absolute Number of Underreported Neonatal Deaths for {sel_uc_prov}", template="plotly_white")
+                            fig_C.update_xaxes(dtick=5)
+                            st.plotly_chart(fig_C, use_container_width=True)
+                            
+                        show_data_expander(filt_uc_prov, f"historical_provincial_undercoverage_{sel_uc_prov}.csv")
+        except FileNotFoundError:
+            st.error("Please ensure 'historical_undercoverage_provincial.csv' is generated and placed in the data folder.")
